@@ -88,7 +88,7 @@ Initiated a **Peering Connection Request** from VPC 1 (Requester) to VPC 2 (Acce
 
 ---
 
-### Step 3 — Update Route Tables in Both VPCs
+### Phase 3 — Update Route Tables in Both VPCs
  
 After acceptance, both route tables require an explicit entry pointing cross-VPC traffic at the peering connection. Without this, packets have no path to the peer and the connection is non-functional.
  
@@ -114,7 +114,7 @@ After acceptance, both route tables require an explicit entry pointing cross-VPC
  
 ---
 
-### Step 4 - Launch EC2 Instances
+### Phase 4 - Launch EC2 Instances
 
 In this step, I will launch an EC2 instance in each VPC because these instances will be used to test the VPC peering connection later in the project.
 
@@ -126,7 +126,7 @@ In this step, I will launch an EC2 instance in each VPC because these instances 
 
 ---
 
-### Step 5 & 6 — Connect via EC2 Instance Connect + Troubleshooting
+### Phase 5 & 6 — Connect via EC2 Instance Connect + Troubleshooting
  
 **Problem encountered:**
  
@@ -156,7 +156,7 @@ Allocated a new **Elastic IP** from Amazon's IPv4 pool and associated it with In
 
 ---
  
-### Step 7 — Test VPC Peering (Ping Validation)
+### Phase 7 — Test VPC Peering (Ping Validation)
  
 From Instance 1, executed a ping targeting Instance 2's **private IP address**:
  
