@@ -1,165 +1,158 @@
-<img src="https://cdn.prod.website-files.com/677c400686e724409a5a7409/6790ad949cf622dc8dcd9fe4_nextwork-logo-leather.svg" alt="NextWork" width="300" />
-
 # VPC Monitoring with Flow Logs
 
-**Project Link:** [View Project](http://learn.nextwork.org/projects/aws-networks-monitoring)
+A multi-VPC AWS network built with isolated CIDR blocks, secured with least-privilege IAM roles for log delivery, connected via VPC Peering, and continuously monitored using VPC Flow Logs and CloudWatch Logs Insights for traffic visibility and troubleshooting.
 
+**Project Author:** [View Project](http://learn.nextwork.org/projects/aws-networks-monitoring)</br>
 **Author:** Ngurah Gede Wisnu Gudakesa  
 **Email:** ngurahgedewisnugk@gmail.com
 
 ---
 
-## VPC Monitoring with Flow Logs
+## Architecture Overview
 
-![Image](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_3e1e79a1)
+![architecture overview](<Assets/architecture overview.png>)
+ 
+- This project provisions two fully isolated Virtual Private Clouds, **NextWork-1** (`10.1.0.0/16`) and **NextWork-2** (`10.2.0.0/16`), each built using the VPC wizard's "VPC and more" option to automatically generate a public subnet, route table, and Internet Gateway. An EC2 instance with a public IPv4 address is launched in each VPC's subnet, with security groups configured to allow inbound ICMP traffic from `0.0.0.0/0`. 
+
+- This setup enables both the generation of real network traffic for monitoring purposes and connectivity testing between the two environments. A **VPC Peering Connection** links the two VPCs, with route tables on both sides updated to direct traffic destined for the peer VPC's CIDR block through the peering connection rather than out to the public internet.
+ 
+- From a security and observability standpoint, the architecture follows a **least-privilege, defense-in-depth model**. 
+- VPC Flow Logs are enabled on NextWork-1 to capture all accepted and rejected traffic at the ENI/subnet level, and a dedicated IAM policy and role — governed by a custom trust policy that permits only the VPC Flow Logs service to assume it — are created to deliver these logs to CloudWatch Log Groups. 
+- This ensures log delivery permissions are scoped exclusively to the Flow Logs service, eliminating the risk of other services misusing the role. On top of this, **CloudWatch Logs Insights** is used to query the collected flow logs, transforming raw network records into actionable insights such as top talkers by byte volume — supporting both security auditing and performance troubleshooting.
+
+---
+ 
+## What I Built
+ 
+A production-ready **multi-VPC network monitoring solution** that provides:
+ 
+* **Isolated Multi-VPC Network Design**: Two VPCs (NextWork-1 and NextWork-2) provisioned with **unique, non-overlapping CIDR blocks** (`10.1.0.0/16` and `10.2.0.0/16`) to prevent routing conflicts, each with its own public subnet, route table, and Internet Gateway.
+* **Private Inter-VPC Connectivity via VPC Peering**: A **VPC Peering Connection** with updated route tables on both VPCs, enabling direct, private IP-to-IP communication between resources in NextWork-1 and NextWork-2 without traversing the public internet.
+* **Comprehensive Network Visibility with VPC Flow Logs**: **VPC Flow Logs** capturing source/destination IPs, ports, protocols, packet counts, byte transfers, and accept/reject status for all traffic, delivered to a **CloudWatch Log Group**.
+* **Least-Privilege IAM Access for Log Delivery**: A custom **IAM policy and role**, secured with a **custom trust policy**, that grants the VPC Flow Logs service exactly the permissions it needs to create log groups/streams and write log events — nothing more.
+* **Traffic Analytics with CloudWatch Logs Insights**: **CloudWatch Logs Insights** queries (e.g., "Top 10 byte transfers by source and destination IP addresses") to identify the busiest traffic routes and support network troubleshooting.
 
 ---
 
-## Introducing Today's Project!
+## Technology Stack
+ 
+| Category | Service / Tool | Purpose |
+|---|---|---|
+| Networking | Amazon VPC | Isolated virtual networks (NextWork-1, NextWork-2) |
+| Networking | VPC Peering | Private connectivity between the two VPCs |
+| Networking | Internet Gateway & Route Tables | Public internet access and inter-VPC routing |
+| Compute | Amazon EC2 | Instances for generating and testing network traffic |
+| Monitoring | VPC Flow Logs | Capturing inbound/outbound traffic metadata |
+| Monitoring | Amazon CloudWatch Logs | Centralized storage for flow log data |
+| Monitoring | CloudWatch Logs Insights | Querying and analyzing flow log data |
+| Security/IAM | IAM Policy & Role | Least-privilege permissions for Flow Logs to CloudWatch delivery |
+| Security/IAM | Custom Trust Policy | Restricts role assumption to the VPC Flow Logs service only |
+| Security | Security Groups | ICMP inbound rules for connectivity testing |
+ 
+---
 
-### What is Amazon VPC?
+## Action: Step-by-Step Implementation
 
-An Amazon VPC is an isolated virtual network within AWS that you fully control. It's incredibly useful because it allows your resources to communicate privately within the VPC, securely connect with other VPCs using peering connections, and safely access the public internet when needed.
+### Step 1 — Set Up Two VPCs
 
-### How I used Amazon VPC in this project
+![Create VPC](<Assets/01 - Create VPC.png>)
+ 
+Using the **VPC wizard's "VPC and more" option**, two VPCs were provisioned from scratch — NextWork-1 (`10.1.0.0/16`) and NextWork-2 (`10.2.0.0/16`) — each automatically generating one public subnet, one route table, and one Internet Gateway. This approach minimizes manual configuration and setup time while keeping the CIDR ranges unique to avoid IP overlap, routing conflicts, and connectivity issues between the two environments.
 
-In this project, I leveraged Amazon VPC to build a robust network monitoring solution. I started by creating two isolated VPC environments using the VPC Resource Map and launched EC2 instances within them. To enable secure communication between these environments, I established a VPC Peering Connection. The core of the project involved setting up VPC Flow Logs to capture all network traffic, granting necessary permissions via IAM policies and roles to send these logs to CloudWatch. Finally, I used CloudWatch Logs Insights to analyze the collected flow logs, gaining valuable insights into network activity and troubleshooting communication patterns.
+### Step 2 — Launch EC2 Instances
+ 
+An EC2 instance was launched in each VPC's subnet, configured with:
+ 
+* A **public IPv4 address** for direct reachability and connectivity testing.
+* A **security group inbound rule allowing All ICMP - IPv4 traffic from `0.0.0.0/0`**, enabling ping-based connectivity tests between instances.
+  
+These instances serve a dual purpose: generating the network traffic that VPC Flow Logs will capture, and acting as test endpoints for the upcoming VPC Peering connection.
 
-### One thing I didn't expect in this project was...
+### Step 3 — Set Up VPC Flow Logs
 
-One thing I didn't expect in this project was how crucial a deep understanding of CloudWatch Log Groups is for effective network monitoring. It's not just about collecting logs, but about how they are organized within specific groups, which then directly enables the powerful visual insights we can gain using CloudWatch Logs Insights. Realizing how these visual insights can be tailored to our needs was particularly impressive and impactful.
+![Create Flow Logs](<Assets/03 - VPC Create Flow Logs.png>)
+ 
+**VPC Flow Logs** were configured on NextWork-1 to record all inbound and outbound traffic for the VPC, with logs stored in a **CloudWatch Log Group** for retention and analysis. Each captured record includes:
+ 
+* Source and destination IP addresses
+* Protocol and destination port
+* Number of packets and bytes transferred
+* Accept or reject status
 
-### This project took me...
+### Step 4 — Configure IAM Permissions for Flow Logs
+ 
+To allow Flow Logs to deliver data to CloudWatch, the following IAM resources were created:
+ 
+* **IAM Policy** — grants permissions to create log groups/streams and put log events into CloudWatch Logs.
+  ![IAM Policy](<04 - VPC Flow IAM Policy.png>)
+* **IAM Role with a Custom Trust Policy** — the trust policy restricts role assumption to the **VPC Flow Logs service only**, preventing other AWS services from using the role. The IAM policy is attached to this role.
+  ![IAM Custom Policy](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_4334d777)
+* **Role Assignment** — the completed role is assigned to the subnet's Flow Log configuration, finalizing the log delivery pipeline.
+  ![IAM Role](<Assets/04 - VPC Flow IAM Role.png>)
 
-This project took me 8 hours, and I dedicated that time to thoroughly understanding each topic's concepts. I've noticed that with each project series, the field becomes more complex, truly requiring a commitment to in-depth study.
+### Step 5 — Initial Connectivity (Ping) Test
+ 
+A ping test was run from Instance 1 to Instance 2 using **private IPv4 addresses** to validate cross-VPC connectivity prior to establishing peering.
+
+![VPC Testing](<Assets/05 - VPC Testing.png>)
+ 
+### Step 6 — Establish a VPC Peering Connection
+ 
+- A **VPC Peering Connection** was created between NextWork-1 and NextWork-2.
+  ![vpc peering connection](<Assets/vpc peering connection.png>) 
+- and the **route tables of both VPCs were updated** to direct traffic destined for the peer VPC's CIDR block through the peering connection — enabling secure, private IP-based communication between the two networks.
+  ![Route Table](<Assets/VPC 1 Route Table .png>)
+ 
+### Step 7 — Analyze Flow Logs with CloudWatch Logs Insights
+ 
+Using **CloudWatch Logs Insights**, the collected flow log data was queried to identify traffic patterns. The query **"Top 10 byte transfers by source and destination IP addresses"** was executed to surface the busiest traffic routes in the network.
+
+![Log Insight](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_3e1e79a1)
 
 ---
 
-## In the first part of my project...
+## Problem Solving
 
-### Step 1 - Set up VPCs
+### Issue: Private IP Connectivity Failure Before Peering
+ 
+**Symptom:** The initial ping test from Instance 1 to Instance 2's **private IPv4 address** returned no replies.
 
-In this step, I will create two VPCs from scratch using the VPC wizard. This approach helps reduce setup time and minimize manual configuration, making the process faster and less prone to errors. We are setting up two VPCs to also revise some learnings from the VPC peering project.
+![Ping Instance 1](<Assets/ping instance 1 .png>) 
+ 
+**Root Cause:** No VPC Peering Connection existed between NextWork-1 and NextWork-2. As a result, traffic destined for VPC 2's private IP range had no direct path and was instead routed out through the Internet Gateway to the public internet — meaning private-IP communication between the VPCs was not yet possible.
+ 
+**Diagnostic Step:** A follow-up ping test using Instance 2's **public IP address** succeeded, confirming the instances were individually reachable, but only over the public internet — isolating the problem specifically to the lack of a private cross-VPC path.
 
-### Step 2 - Launch EC2 instances
+![Ping Public Ip](<Assets/07 - ping public ip.png>)
+ 
+**Resolution:** A **VPC Peering Connection** was established **on step 6**, and **route tables in both VPCs were updated** to point traffic destined for the peer VPC's CIDR block at the peering connection.
+ 
+**Result:** A repeated ping test using Instance 2's **private IP address** succeeded, confirming that:
 
-In this step, I will launching an EC2 instance in each VPC. These instances are essential for two reasons: first, they will generate the network activity that our VPC Flow Logs will monitor, and second, they will be used to test the VPC peering connection between the two VPCs later in the project. I’m also configuring them to have public IPv4 addresses and setting up their security groups to allow ICMP traffic for my connectivity tests.
+![ping instance 1 private address](<Assets/ping instance 1 private address.png>)
 
-### Step 3 - Set up Logs
+* Private IP-to-IP communication between VPC 1 and VPC 2 was restored.
+* Traffic between the VPCs is now routed directly via the peering connection rather than over the public internet — improving both performance and security posture.
+```
+Before: Instance 1 → Internet Gateway → Public Internet → Instance 2 (public IP only, exposed traffic)
+After:  Instance 1 → VPC Peering Connection → Instance 2 (private IP, isolated from public internet)
+```
+ 
+---
+ 
+## Key Takeaways
+ 
+* **CIDR planning matters**: Assigning unique, non-overlapping CIDR blocks (`10.1.0.0/16` vs `10.2.0.0/16`) up front prevented routing conflicts between the two VPCs.
+* **Peering requires both route tables**: Establishing a peering connection alone is not enough — both VPCs' route tables must explicitly point traffic to the peering connection for private communication to work.
+* **Least-privilege IAM is foundational to observability**: A custom trust policy ensures only the VPC Flow Logs service can assume the role used to deliver logs to CloudWatch, reducing the attack surface of the monitoring pipeline.
+* **Log organization drives insight quality**: How CloudWatch Log Groups are structured directly affects how effectively CloudWatch Logs Insights can be used to query (on Step 7) and visualize network activity.
+---
+ 
+## Project Reflection
+ 
+This project took approximately **8 hours**, with time dedicated to building a thorough conceptual understanding of each topic — VPC isolation, peering, Flow Logs, IAM trust policies, and Logs Insights queries — rather than just completing the configuration steps. The most significant takeaway was recognizing how critical CloudWatch Log Group organization is: it's not just about collecting flow log data, but about structuring it in a way that unlocks meaningful, query-driven insights into network behavior.
 
-In this step, I will set up VPC Flow Logs to track all inbound and outbound network traffic within my VPC, and store these records for analysis.
-
-### Step 4 - Set IAM permissions for Logs
-
-In this step, I will create an IAM policy to define the permissions VPC Flow Logs needs to write logs to CloudWatch. Then, I will create an IAM role with a custom trust policy, attach the newly created IAM policy to it, and finally assign this role to VPC Flow Logs to enable log delivery. This also allows me to finish setting up the subnet's flow log.
+![flow logs](<Assets/expanded flow logs.png>)
 
 ---
-
-## Multi-VPC Architecture
-
-In this step, I launched two isolated VPCs (NextWork-1 and NextWork-2) using the VPC wizard's "VPC and more" option. Each VPC has a unique IPv4 CIDR block (10.1.0.0/16 and 10.2.0.0/16 respectively). For each VPC, I created one public subnet, one route table, and one Internet Gateway. In total, I created two subnets.
-
-
-The IPv4 CIDR blocks for VPCs 1 and 2 are unique because overlapping IP addresses between them would cause routing conflicts and connectivity issues for their resources.
-
-### I also launched EC2 instances in each subnet
-
-My EC2 instances' security groups were configured with an inbound rule to allow All ICMP - IPv4 traffic from 0.0.0.0/0 (all IP addresses). This was necessary to ensure that the upcoming ping test, which requires ICMP traffic to be allowed from any source, would function correctly.
-
-![Image](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_e7fa8775)
-
----
-
-## Logs
-
-Logs are like a diary for your computer systems, recording everything that happens within an operating system or application. They are crucial for security audits, helping to gather information about system activities, and are essential for troubleshooting problems to meet service-level agreements.
-
-Log groups are like big folders in AWS CloudWatch where you keep related log data together. Logs are region-specific, meaning they are created and stored in the region where they originate. However, CloudWatch dashboards can be used to bring together and view logs from different regions.
-
-### I also set up a flow log for VPC 1
-
-![Image](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_e8398869)
-
----
-
-## IAM Policy and Roles
-
-I created an IAM policy because VPC Flow Logs need explicit permission to send network traffic data to CloudWatch Log Groups. This policy allows Flow Logs to create log groups and streams, and then put log events into them, ensuring our network activity is recorded.
-
-I created an IAM role to assign the permissions defined in my IAM policy to VPC Flow Logs. The custom trust policy ensures that only VPC Flow Logs can assume this role, giving it the specific actions it needs (like sending logs to CloudWatch) while maintaining strong security.
-
-A custom trust policy is define who can assume or use this role, In this case, it specifically allows only VPC Flow Logs to use the role that I'm creating. This is a crucial security measure to prevent other services from accidentally or maliciously using the role.
-
-//please review my answer, is it relatable with questions on Step 4 : Set Up a Flow Log IAM Policy and Role. "What is a custom trust policy?" If there is something part missing or out-of-topic, please correct it and simplify.
-
-![Image](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_4334d777)
-
----
-
-## In the second part of my project...
-
-### Step 5 - Ping testing and troubleshooting
-
-In this step, I will test the VPC peering connection by having Instance 1 send test messages to Instance 2. This will ensure that communication is established between the two isolated VPC environments.
-
-### Step 6 - Set up a peering connection
-
-In this step, I will set up a VPC Peering Connection and configure route tables to enable direct communication between VPC 1 and VPC 2 using their private IP addresses. This ensures traffic can flow securely between them.
-
-### Step 7 - Analyze flow logs
-
-In this step, I will deep dive into VPC Flow Logs by using CloudWatch Logs Insights to analyze recorded network activity. My goal is to review the flow logs to understand traffic patterns and identify key insights, such as the top data transfers between IP addresses.
-
----
-
-## Connectivity troubleshooting
-
-My first ping test between my EC2 instances had no replies with Private Ipv4 Address, which means there's a problem with the connection.
-
-![Image](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_99d4ba42)
-
-Receiving ping replies when using the other instance's public IP address means that Instance 2 is configured to respond to ping requests, and Instance 1 can communicate with it, but this communication is happening over the public internet. This confirms that the instances themselves are reachable, but not necessarily through a private peering connection.
-
----
-
-## Connectivity troubleshooting
-
-The ping test using Instance 2's private address failed because there was no VPC peering connection established between VPC 1 and VPC 2. Without this direct connection, traffic destined for VPC 2's private IP addresses was routed through the Internet Gateway via the public internet, instead of directly between the VPCs. This exposes the traffic publicly and prevents private IP communication.
-
-### To solve this, I set up a peering connection between my VPCs
-
-I updated both VPCs' route tables to explicitly direct traffic destined for the other VPC through the newly established VPC peering connection. Without these new routes, the VPCs wouldn't know to use the peering connection, and traffic between them wouldn't be able to flow using private IP addresses.
-
-![Image](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_7316a13d)
-
----
-
-## Connectivity troubleshooting
-
-The successful ping replies from Instance 2's private IP address indicate that the VPC peering connection is correctly configured. This allows VPC 1 and VPC 2 to communicate directly using their private IP addresses, with traffic routed effectively by each VPC's route table.
-
-![Image](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_4ec7821f)
-
----
-
-## Analyzing flow logs
-
-Flow logs tell meabout network traffic, including the amount of data (in bytes) transferred, the source and destination IP addresses, the protocol used, the destination port, the number of packets transferred, and the status of the traffic (whether it was accepted or rejected).
-
-For example, the flow log I've captured tells me about specific network traffic, including whether it was accepted or rejected. It details the amount of data transferred (in bytes), the source IP address, the destination IP address, the protocol used, the port, and the number of packets transferred.
-
-![Image](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_d116818e)
-
----
-
-## Logs Insights
-
-Logs Insights is a CloudWatch feature that analyzes network logs. It uses queries to filter, process, and combine data, which helps you troubleshoot problems and better understand your network traffic, especially for the network resources in this project.
-
-I ran the query “Top 10 byte transfers by source and destination IP addresses”. This query helps discover the top 10 biggest data transfers between IP addresses in my network, which uncovers the busiest traffic routes.
-
-![Image](http://learn.nextwork.org/motivated_teal_shy_hog/uploads/aws-networks-monitoring_3e1e79a1)
-
----
-
 ---
