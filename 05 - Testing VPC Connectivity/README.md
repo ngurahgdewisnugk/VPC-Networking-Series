@@ -26,7 +26,7 @@ Security was enforced through a **defense-in-depth** model operating at two dist
 --- 
 ### This project took me...
 
-This project took me 5 hours, including the time spent on understang each concept.
+This project took me 5 hours, including the time spent on understand each concept.
 
 ---
 

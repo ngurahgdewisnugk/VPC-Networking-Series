@@ -54,7 +54,7 @@ All resources were provisioned in the **Asia Pacific (Sydney) / `ap-southeast-2b
 
 - My private subnet's dedicated route table only has one default route that allows traffic within the 10.0.0.0/16 CIDR block to communicate with local resources under the VPC.
 
-### Phase 3: ecurity Layer Implementation (network ACL)
+### Phase 3: Security Layer Implementation (network ACL)
 ![Network ACL](<assets/NACL inbound rules.png>)
 
 - By default, my private subnet is associated with the default network ACL for the VPC. This default ACL allows all inbound and outbound traffic, which exposes my private subnet to unrestricted access from the internet or other untrusted networks.
